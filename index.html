@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客户管理 · 自动更新 | 独立服务器监控</title>
+    <style>
+        /* ====================
+           核心变量与重置 (完全保留)
+           ==================== */
+        :root {
+            --bg-color: #e0e5ec;
+            --text-main: #4a4a4a;
+            --text-light: #8b9bb4;
+            --text-danger: #e74c3c;
+            --text-muted: #aab7c5;
+            --accent-color: #6d5dfc;
+            
+            --status-ok: #00b894;       /* 绿 */
+            --status-warn: #fdcb6e;     /* 黄 */
+            --status-danger: #ff7675;   /* 红 */
+            --status-expired: #b2bec3;  /* 灰 */
+
+            --shadow-light: 9px 9px 16px rgb(163,177,198,0.6);
+            --shadow-dark: -9px -9px 16px rgba(255,255,255, 0.5);
+            --inner-shadow: inset 6px 6px 10px 0 rgba(163,177,198, 0.7), 
+                            inset -6px -6px 10px 0 rgba(255,255,255, 0.8);
+            --outer-shadow-sm: 5px 5px 10px rgba(163,177,198, 0.4), 
+                               -5px -5px 10px rgba(255,255,255, 0.8);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 40px;
+            border-radius: 30px;
+            background-color: var(--bg-color);
+            box-shadow: 20px 20px 60px #bebebe, -20px -20px 60px #ffffff;
+        }
+
+        /* ====================
+           头部区域
+           ==================== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 35px;
+            padding: 0 5px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+
+        .server-tag {
+            font-size: 14px;
+            color: var(--text-main);
+            font-weight: 600;
+            background-color: var(--bg-color);
+            box-shadow: var(--inner-shadow);
+            padding: 8px 16px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .server-tag::before {
+            content: ''; display: block; width: 8px; height: 8px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(109, 93, 252, 0.5);
+        }
+
+        .server-price {
+            color: var(--text-light); font-weight: normal; font-size: 13px; margin-left: 5px; font-family: 'Consolas', monospace;
+        }
+
+        .dashboard-info { display: flex; gap: 15px; }
+
+        .badge {
+            font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 50px;
+            background: var(--bg-color); box-shadow: var(--outer-shadow-sm);
+            display: flex; align-items: center; gap: 8px; cursor: default; transition: transform 0.2s;
+        }
+        .badge:hover { transform: translateY(-2px); }
+
+        .dot-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+        /* 自动更新提示 */
+        .update-note {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-left: 15px;
+            padding: 4px 12px;
+            background: var(--bg-color);
+            box-shadow: var(--inner-shadow);
+            border-radius: 30px;
+        }
+
+        /* ====================
+           表格样式
+           ==================== */
+        .table-wrapper { overflow-x: auto; padding: 15px; }
+
+        table { width: 100%; border-collapse: separate; border-spacing: 0 18px; }
+
+        th {
+            text-align: left; padding: 10px 25px; color: var(--text-light);
+            font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+        }
+        th.col-id, td.col-id { text-align: center; width: 60px; }
+
+        tbody tr { background-color: var(--bg-color); transition: all 0.4s ease; border-radius: 15px; }
+        tbody tr td {
+            background-color: transparent; padding: 20px 25px; font-size: 15px; vertical-align: middle;
+            border-top: 1px solid rgba(255,255,255,0.5); border-bottom: 1px solid rgba(163,177,198,0.1);
+        }
+        tbody tr td:first-child { border-top-left-radius: 15px; border-bottom-left-radius: 15px; border-left: 1px solid rgba(255,255,255,0.5); }
+        tbody tr td:last-child { border-top-right-radius: 15px; border-bottom-right-radius: 15px; border-right: 1px solid rgba(163,177,198,0.1); }
+
+        /* 动态状态样式 */
+        tr.status-active, tr.status-warning, tr.status-critical {
+            box-shadow: 6px 6px 10px rgba(163,177,198, 0.4), -6px -6px 10px rgba(255,255,255, 0.8);
+        }
+        tr.status-active:hover, tr.status-warning:hover, tr.status-critical:hover {
+            transform: translateY(-3px);
+            box-shadow: 9px 9px 18px rgba(163,177,198, 0.5), -9px -9px 18px rgba(255,255,255, 0.9);
+        }
+
+        /* 已过期行 */
+        tr.status-expired {
+            box-shadow: var(--inner-shadow);
+            opacity: 0.8;
+        }
+        tr.status-expired td { border: none !important; color: var(--text-muted); }
+        tr.status-expired .domain-link { color: var(--text-muted); pointer-events: none; }
+        tr.status-expired .col-id, tr.status-expired .date-cell { color: var(--text-muted); }
+
+        .col-id { font-family: 'Consolas', monospace; color: var(--text-light); font-weight: bold; }
+        .date-cell { font-family: 'Consolas', monospace; color: var(--text-light); white-space: nowrap; }
+        
+        .domain-link { text-decoration: none; color: var(--text-main); font-weight: 600; transition: color 0.2s; }
+        tr:not(.status-expired) .domain-link:hover { color: var(--accent-color); }
+
+        /* 剩余天数样式 */
+        .remaining-days {
+            margin-left: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .remaining-green { color: var(--status-ok); }
+        .remaining-yellow { color: #d39e00; }
+        .remaining-red { color: var(--status-danger); }
+        .remaining-expired { color: var(--text-muted); }
+
+        /* 呼吸灯系统 */
+        .status-dot {
+            display: inline-block;
+            border-radius: 50%;
+            margin-right: 12px;
+            vertical-align: middle;
+            width: 12px;
+            height: 12px;
+        }
+
+        .dot-green {
+            background-color: var(--status-ok);
+            width: 12px;
+            height: 12px;
+            animation: breathe-green 4s ease-in-out infinite;
+        }
+
+        .dot-yellow {
+            background-color: var(--status-warn);
+            width: 16px;
+            height: 16px;
+            animation: breathe-yellow 2.5s ease-in-out infinite;
+        }
+
+        .dot-red-glow {
+            background-color: var(--status-danger);
+            width: 20px;
+            height: 20px;
+            animation: breathe-red 1.2s ease-in-out infinite;
+        }
+
+        .dot-gray {
+            background-color: var(--status-expired);
+            width: 12px;
+            height: 12px;
+            box-shadow: inset 1px 1px 4px rgba(0,0,0,0.2);
+            animation: none;
+        }
+
+        @keyframes breathe-green {
+            0% { box-shadow: 0 0 1px var(--status-ok), 0 0 1px var(--status-ok); opacity: 0.9; transform: scale(1); }
+            50% { box-shadow: 0 0 10px var(--status-ok), 0 0 20px var(--status-ok); opacity: 1; transform: scale(1.1); }
+            100% { box-shadow: 0 0 1px var(--status-ok), 0 0 1px var(--status-ok); opacity: 0.9; transform: scale(1); }
+        }
+
+        @keyframes breathe-yellow {
+            0% { box-shadow: 0 0 2px var(--status-warn), 0 0 2px var(--status-warn); opacity: 0.9; transform: scale(1); }
+            50% { box-shadow: 0 0 15px var(--status-warn), 0 0 30px var(--status-warn); opacity: 1; transform: scale(1.15); }
+            100% { box-shadow: 0 0 2px var(--status-warn), 0 0 2px var(--status-warn); opacity: 0.9; transform: scale(1); }
+        }
+
+        @keyframes breathe-red {
+            0% { box-shadow: 0 0 4px var(--status-danger), 0 0 4px var(--status-danger); opacity: 0.9; transform: scale(1); }
+            50% { box-shadow: 0 0 20px var(--status-danger), 0 0 40px var(--status-danger); opacity: 1; transform: scale(1.2); }
+            100% { box-shadow: 0 0 4px var(--status-danger), 0 0 4px var(--status-danger); opacity: 0.9; transform: scale(1); }
+        }
+
+        .dot-indicator.dot-gray { background-color: var(--status-expired); box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2); width: 8px; height: 8px; animation: none; }
+        .dot-indicator.dot-yellow { background-color: var(--status-warn); width: 8px; height: 8px; animation: none; box-shadow: 0 0 5px var(--status-warn);}
+        .dot-indicator.dot-green { background-color: var(--status-ok); width: 8px; height: 8px; animation: none; box-shadow: 0 0 5px var(--status-ok);}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <div class="header-left">
+                <h1>客户管理 · 自动更新</h1>
+                <div class="server-tag">
+                    独立服务器 <span class="server-price">¥1,500/年</span>
+                </div>
+                <span class="update-note">⏱️ 每小时自动刷新倒计时</span>
+            </div>
+            
+            <!-- 统计徽章 (动态更新) -->
+            <div class="dashboard-info">
+                <div class="badge" id="badge-expired" style="color: var(--text-muted);">
+                    <span class="dot-indicator dot-gray"></span> 0 已过期
+                </div>
+                <div class="badge" id="badge-warning" style="color: #d39e00;">
+                    <span class="dot-indicator dot-yellow"></span> 0 预警中
+                </div>
+                <div class="badge" id="badge-normal" style="color: var(--status-ok);">
+                    <span class="dot-indicator dot-green"></span> 0 正常
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-id">#</th>
+                        <th>域名</th>
+                        <th>会社名称</th>
+                        <th>完成日期</th>
+                        <th>过期时间 / 倒计时</th>
+                    </tr>
+                </thead>
+                <tbody id="domain-list">
+                    
+                    <!-- 数据行完全不变，所有动态效果由JS计算并更新 -->
+                    <tr>
+                        <td class="col-id">01</td>
+                        <td><span class="status-dot"></span><a href="http://yoshitoshi.co.jp" target="_blank" class="domain-link">yoshitoshi.co.jp</a></td>
+                        <td>吉利株式会社</td>
+                        <td class="date-cell">2024-08-17</td>
+                        <td class="date-cell expire-date">2026-08-17</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">02</td>
+                        <td><span class="status-dot"></span><a href="http://kamiupu.co.jp" target="_blank" class="domain-link">kamiupu.co.jp</a></td>
+                        <td>KAMIUPU</td>
+                        <td class="date-cell">2024-09-01</td>
+                        <td class="date-cell expire-date">2025-09-01</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">03</td>
+                        <td><span class="status-dot"></span><a href="http://co-hys.co.jp" target="_blank" class="domain-link">co-hys.co.jp</a></td>
+                        <td>HYS Planning Co., Ltd.</td>
+                        <td class="date-cell">2024-09-07</td>
+                        <td class="date-cell expire-date">2025-09-07</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">04</td>
+                        <td><span class="status-dot"></span><a href="http://nekusuto.co.jp" target="_blank" class="domain-link">nekusuto.co.jp</a></td>
+                        <td>株式会社ネクストチョイス</td>
+                        <td class="date-cell">2024-10-03</td>
+                        <td class="date-cell expire-date">2026-10-03</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">05</td>
+                        <td><span class="status-dot"></span><a href="http://entou.co.jp" target="_blank" class="domain-link">entou.co.jp</a></td>
+                        <td>炎東商会株式会社</td>
+                        <td class="date-cell">2025-01-08</td>
+                        <td class="date-cell expire-date">2027-01-08</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">06</td>
+                        <td><span class="status-dot"></span><a href="http://tohikokusai.co.jp" target="_blank" class="domain-link">tohikokusai.co.jp</a></td>
+                        <td>株式会社騰飛国際</td>
+                        <td class="date-cell">2025-01-08</td>
+                        <td class="date-cell expire-date">2027-01-08</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">07</td>
+                        <td><span class="status-dot"></span><a href="http://htat8.com" target="_blank" class="domain-link">htat8.com</a></td>
+                        <td>兴达装饰</td>
+                        <td class="date-cell">2025-12-01</td>
+                        <td class="date-cell expire-date">2026-12-01</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">08</td>
+                        <td><span class="status-dot"></span><a href="https://one-system.co.jp/" target="_blank" class="domain-link">one-system.co.jp</a></td>
+                        <td>株式会社ONE SYSTEM</td>
+                        <td class="date-cell">2026-02-21</td>
+                        <td class="date-cell expire-date">2027-02-21</td>
+                    </tr>
+                    <tr>
+                        <td class="col-id">09</td>
+                        <td><span class="status-dot"></span><a href="https://kinsyuu.jp/" target="_blank" class="domain-link">kinsyuu.jp</a></td>
+                        <td>金秀商事</td>
+                        <td class="date-cell">2026-02-25</td>
+                        <td class="date-cell expire-date">2027-02-25</td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 核心逻辑：倒计时 + 阈值(红≤3, 黄4~30) + 排序 + 每小时自动更新 -->
+    <script>
+        (function() {
+            // 获取今天的日期 (归零)
+            function getToday() {
+                const d = new Date();
+                d.setHours(0, 0, 0, 0);
+                return d;
+            }
+
+            // 主刷新函数：计算、更新样式、倒计时、排序、更新徽章
+            function refreshDisplay() {
+                const today = getToday();
+                const tbody = document.getElementById('domain-list');
+                const rows = Array.from(document.querySelectorAll('#domain-list tr'));
+
+                // 提取每行数据
+                const rowData = rows.map(row => {
+                    const dateCell = row.querySelector('.expire-date');
+                    const expireDateStr = dateCell ? dateCell.innerText.trim() : '';
+                    const expireDate = new Date(expireDateStr);
+                    expireDate.setHours(0, 0, 0, 0);
+                    const diffTime = expireDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    const dot = row.querySelector('.status-dot');
+                    // 清除行和dot的旧样式 (将在后面根据新状态重新添加)
+                    row.className = '';
+                    dot.className = 'status-dot';
+
+                    return {
+                        row: row,
+                        dot: dot,
+                        dateCell: dateCell,
+                        expireDate: expireDate,
+                        diffDays: diffDays,
+                        expireDateStr: expireDateStr
+                    };
+                });
+
+                // 定义状态常量
+                const EXPIRED = 'expired';      // diffDays < 0
+                const CRITICAL = 'critical';    // 0 <= diffDays <= 3
+                const WARNING = 'warning';      // 4 <= diffDays <= 30
+                const ACTIVE = 'active';        // diffDays > 30
+
+                // 为每一行设置样式、倒计时文本
+                rowData.forEach(item => {
+                    const { row, dot, dateCell, diffDays } = item;
+
+                    let status;
+                    if (diffDays < 0) {
+                        status = EXPIRED;
+                    } else if (diffDays <= 3) {
+                        status = CRITICAL;
+                    } else if (diffDays <= 30) {
+                        status = WARNING;
+                    } else {
+                        status = ACTIVE;
+                    }
+
+                    // 设置行类和dot类
+                    switch (status) {
+                        case EXPIRED:
+                            row.classList.add('status-expired');
+                            dot.classList.add('dot-gray');
+                            break;
+                        case CRITICAL:
+                            row.classList.add('status-critical');
+                            dot.classList.add('dot-red-glow');
+                            break;
+                        case WARNING:
+                            row.classList.add('status-warning');
+                            dot.classList.add('dot-yellow');
+                            break;
+                        case ACTIVE:
+                            row.classList.add('status-active');
+                            dot.classList.add('dot-green');
+                            break;
+                    }
+
+                    // 在过期日期后面添加/更新倒计时span
+                    let remainingSpan = dateCell.querySelector('.remaining-days');
+                    if (!remainingSpan) {
+                        remainingSpan = document.createElement('span');
+                        remainingSpan.className = 'remaining-days';
+                        dateCell.appendChild(remainingSpan);
+                    }
+
+                    // 设置倒计时文本和颜色类
+                    let remainingText = '';
+                    let colorClass = '';
+                    if (diffDays < 0) {
+                        remainingText = `(已过期 ${Math.abs(diffDays)} 天)`;
+                        colorClass = 'remaining-expired';
+                    } else if (diffDays === 0) {
+                        remainingText = '(今天到期)';
+                        colorClass = 'remaining-red';
+                    } else {
+                        remainingText = `(剩余 ${diffDays} 天)`;
+                        if (diffDays <= 3) colorClass = 'remaining-red';
+                        else if (diffDays <= 30) colorClass = 'remaining-yellow';
+                        else colorClass = 'remaining-green';
+                    }
+
+                    remainingSpan.textContent = remainingText;
+                    remainingSpan.className = 'remaining-days ' + colorClass;
+                });
+
+                // 排序：先按是否过期，再按剩余天数升序
+                rowData.sort((a, b) => {
+                    const aExpired = a.diffDays < 0;
+                    const bExpired = b.diffDays < 0;
+                    if (aExpired !== bExpired) {
+                        return aExpired ? 1 : -1;  // 过期往后排
+                    }
+                    return a.diffDays - b.diffDays; // 剩余天数少的在前
+                });
+
+                // 重新插入排序后的行
+                while (tbody.firstChild) {
+                    tbody.removeChild(tbody.firstChild);
+                }
+                rowData.forEach(item => {
+                    tbody.appendChild(item.row);
+                });
+
+                // 更新顶部统计徽章
+                let countExpired = 0, countWarning = 0, countNormal = 0;
+                rowData.forEach(item => {
+                    if (item.diffDays < 0) {
+                        countExpired++;
+                    } else if (item.diffDays <= 3) {
+                        countWarning++;  // 红色预警计入预警
+                    } else if (item.diffDays <= 30) {
+                        countWarning++;  // 黄色预警计入预警
+                    } else {
+                        countNormal++;
+                    }
+                });
+
+                document.getElementById('badge-expired').innerHTML = `<span class="dot-indicator dot-gray"></span> ${countExpired} 已过期`;
+                document.getElementById('badge-warning').innerHTML = `<span class="dot-indicator dot-yellow"></span> ${countWarning} 预警中`;
+                document.getElementById('badge-normal').innerHTML = `<span class="dot-indicator dot-green"></span> ${countNormal} 正常`;
+            }
+
+            // 立即执行一次
+            refreshDisplay();
+
+            // 设置定时器，每小时刷新一次 (3600000 ms)
+            // 这样即使跨天，倒计时也会自动更新，状态也会随之变化
+            setInterval(refreshDisplay, 3600000);
+        })();
+    </script>
+</body>
+</html>
