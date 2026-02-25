@@ -2,11 +2,11 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
     <title>客户管理 · 自动更新 | 独立服务器监控</title>
     <style>
         /* ====================
-           核心变量与重置 (完全保留)
+           核心变量与重置
            ==================== */
         :root {
             --bg-color: #e0e5ec;
@@ -39,54 +39,59 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            padding: 40px 20px;
+            padding: 20px 10px;
         }
 
         .container {
             width: 100%;
-            max-width: 1200px;
-            padding: 40px;
+            max-width: 1400px;  /* 稍微放宽以适应更多内容 */
+            padding: 30px 20px;
             border-radius: 30px;
             background-color: var(--bg-color);
             box-shadow: 20px 20px 60px #bebebe, -20px -20px 60px #ffffff;
         }
 
         /* ====================
-           头部区域
+           头部区域 - 响应式
            ==================== */
         .header {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 35px;
+            gap: 15px 20px;
+            margin-bottom: 25px;
             padding: 0 5px;
         }
 
         .header-left {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
         }
 
         h1 {
-            font-size: 26px;
+            font-size: clamp(20px, 5vw, 26px); /* 动态字体 */
             font-weight: 700;
             color: var(--text-main);
             letter-spacing: 0.5px;
             margin: 0;
+            line-height: 1.2;
         }
 
         .server-tag {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-main);
             font-weight: 600;
             background-color: var(--bg-color);
             box-shadow: var(--inner-shadow);
-            padding: 8px 16px;
-            border-radius: 12px;
+            padding: 6px 14px;
+            border-radius: 30px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            white-space: nowrap;
         }
         .server-tag::before {
             content: ''; display: block; width: 8px; height: 8px;
@@ -96,15 +101,29 @@
         }
 
         .server-price {
-            color: var(--text-light); font-weight: normal; font-size: 13px; margin-left: 5px; font-family: 'Consolas', monospace;
+            color: var(--text-light); font-weight: normal; font-size: 12px; font-family: 'Consolas', monospace;
         }
 
-        .dashboard-info { display: flex; gap: 15px; }
+        .dashboard-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+        }
 
         .badge {
-            font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 50px;
-            background: var(--bg-color); box-shadow: var(--outer-shadow-sm);
-            display: flex; align-items: center; gap: 8px; cursor: default; transition: transform 0.2s;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 40px;
+            background: var(--bg-color);
+            box-shadow: var(--outer-shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: default;
+            transition: transform 0.2s;
+            white-space: nowrap;
         }
         .badge:hover { transform: translateY(-2px); }
 
@@ -112,37 +131,74 @@
 
         /* 自动更新提示 */
         .update-note {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-light);
-            margin-left: 15px;
             padding: 4px 12px;
             background: var(--bg-color);
             box-shadow: var(--inner-shadow);
             border-radius: 30px;
+            white-space: nowrap;
         }
 
         /* ====================
-           表格样式
+           表格样式 - 响应式核心
            ==================== */
-        .table-wrapper { overflow-x: auto; padding: 15px; }
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 0 -5px;  /* 抵消内边距，让滚动条更自然 */
+            padding: 5px;
+            -webkit-overflow-scrolling: touch; /* 流畅滑动 */
+        }
 
-        table { width: 100%; border-collapse: separate; border-spacing: 0 18px; }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 12px;
+            min-width: 700px;  /* 保证在较小屏幕上出现滚动条，避免内容挤压 */
+        }
+
+        /* 大屏幕下可以更宽松 */
+        @media (min-width: 1000px) {
+            table { min-width: 800px; }
+        }
 
         th {
-            text-align: left; padding: 10px 25px; color: var(--text-light);
-            font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+            text-align: left;
+            padding: 8px 15px;
+            color: var(--text-light);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
-        th.col-id, td.col-id { text-align: center; width: 60px; }
+        th.col-id, td.col-id { text-align: center; width: 50px; }
 
-        tbody tr { background-color: var(--bg-color); transition: all 0.4s ease; border-radius: 15px; }
+        tbody tr {
+            background-color: var(--bg-color);
+            transition: all 0.3s ease;
+            border-radius: 12px;
+        }
         tbody tr td {
-            background-color: transparent; padding: 20px 25px; font-size: 15px; vertical-align: middle;
-            border-top: 1px solid rgba(255,255,255,0.5); border-bottom: 1px solid rgba(163,177,198,0.1);
+            background-color: transparent;
+            padding: 15px 15px;
+            font-size: 14px;
+            vertical-align: middle;
+            border-top: 1px solid rgba(255,255,255,0.5);
+            border-bottom: 1px solid rgba(163,177,198,0.1);
+            line-height: 1.4;
         }
-        tbody tr td:first-child { border-top-left-radius: 15px; border-bottom-left-radius: 15px; border-left: 1px solid rgba(255,255,255,0.5); }
-        tbody tr td:last-child { border-top-right-radius: 15px; border-bottom-right-radius: 15px; border-right: 1px solid rgba(163,177,198,0.1); }
+        tbody tr td:first-child {
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+            border-left: 1px solid rgba(255,255,255,0.5);
+        }
+        tbody tr td:last-child {
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+            border-right: 1px solid rgba(163,177,198,0.1);
+        }
 
-        /* 动态状态样式 */
+        /* 动态状态样式 (保持不变) */
         tr.status-active, tr.status-warning, tr.status-critical {
             box-shadow: 6px 6px 10px rgba(163,177,198, 0.4), -6px -6px 10px rgba(255,255,255, 0.8);
         }
@@ -151,7 +207,6 @@
             box-shadow: 9px 9px 18px rgba(163,177,198, 0.5), -9px -9px 18px rgba(255,255,255, 0.9);
         }
 
-        /* 已过期行 */
         tr.status-expired {
             box-shadow: var(--inner-shadow);
             opacity: 0.8;
@@ -160,16 +215,32 @@
         tr.status-expired .domain-link { color: var(--text-muted); pointer-events: none; }
         tr.status-expired .col-id, tr.status-expired .date-cell { color: var(--text-muted); }
 
-        .col-id { font-family: 'Consolas', monospace; color: var(--text-light); font-weight: bold; }
-        .date-cell { font-family: 'Consolas', monospace; color: var(--text-light); white-space: nowrap; }
+        .col-id {
+            font-family: 'Consolas', monospace;
+            color: var(--text-light);
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .date-cell {
+            font-family: 'Consolas', monospace;
+            color: var(--text-light);
+            white-space: nowrap;
+            font-size: 13px;
+        }
         
-        .domain-link { text-decoration: none; color: var(--text-main); font-weight: 600; transition: color 0.2s; }
+        .domain-link {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 600;
+            transition: color 0.2s;
+            word-break: break-word;  /* 防止长域名溢出 */
+        }
         tr:not(.status-expired) .domain-link:hover { color: var(--accent-color); }
 
         /* 剩余天数样式 */
         .remaining-days {
-            margin-left: 10px;
-            font-size: 13px;
+            margin-left: 8px;
+            font-size: 12px;
             font-weight: 600;
             white-space: nowrap;
         }
@@ -178,12 +249,13 @@
         .remaining-red { color: var(--status-danger); }
         .remaining-expired { color: var(--text-muted); }
 
-        /* 呼吸灯系统 */
+        /* 呼吸灯系统 (保持原有) */
         .status-dot {
             display: inline-block;
             border-radius: 50%;
-            margin-right: 12px;
+            margin-right: 10px;
             vertical-align: middle;
+            flex-shrink: 0;
             width: 12px;
             height: 12px;
         }
@@ -238,6 +310,45 @@
         .dot-indicator.dot-gray { background-color: var(--status-expired); box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2); width: 8px; height: 8px; animation: none; }
         .dot-indicator.dot-yellow { background-color: var(--status-warn); width: 8px; height: 8px; animation: none; box-shadow: 0 0 5px var(--status-warn);}
         .dot-indicator.dot-green { background-color: var(--status-ok); width: 8px; height: 8px; animation: none; box-shadow: 0 0 5px var(--status-ok);}
+
+        /* 小屏幕优化 */
+        @media (max-width: 600px) {
+            body { padding: 10px 5px; }
+            .container { padding: 20px 12px; border-radius: 20px; }
+            h1 { font-size: 20px; }
+            .server-tag { font-size: 12px; padding: 4px 10px; }
+            .badge { font-size: 11px; padding: 4px 10px; }
+            .update-note { font-size: 10px; padding: 3px 8px; }
+            
+            tbody tr td { padding: 12px 10px; font-size: 13px; }
+            .col-id { font-size: 12px; }
+            .date-cell { font-size: 12px; }
+            .remaining-days { font-size: 11px; margin-left: 5px; }
+        }
+
+        /* 确保长内容不溢出 */
+        td:first-child .status-dot {
+            margin-right: 6px;
+        }
+        /* 域名区域可以换行 */
+        .domain-link {
+            display: inline-block;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        /* 在极小屏幕下允许域名折行 */
+        @media (max-width: 480px) {
+            .domain-link {
+                max-width: 140px;
+            }
+        }
+        /* 对于触屏，增大点击区域 */
+        .domain-link {
+            padding: 4px 0;
+        }
     </style>
 </head>
 <body>
@@ -250,7 +361,7 @@
                 <div class="server-tag">
                     独立服务器 <span class="server-price">¥1,500/年</span>
                 </div>
-                <span class="update-note">⏱️ 每小时自动刷新倒计时</span>
+                <span class="update-note">⏱️ 每小时自动刷新</span>
             </div>
             
             <!-- 统计徽章 (动态更新) -->
@@ -508,7 +619,6 @@
             refreshDisplay();
 
             // 设置定时器，每小时刷新一次 (3600000 ms)
-            // 这样即使跨天，倒计时也会自动更新，状态也会随之变化
             setInterval(refreshDisplay, 3600000);
         })();
     </script>
